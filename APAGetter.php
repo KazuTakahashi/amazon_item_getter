@@ -35,7 +35,7 @@ Class Code {
             }
 
             return true;
-        } else if(preg_match("/^[0-9]{13}$/", $this->code) == 1 ) {
+        } else if(preg_match("/^[0-9]{13}$/", $this->code) == 1 ) { 
             ChromePhp::log('JANコードかも^^');
             if(validateForJAN($this->code))
             return true;

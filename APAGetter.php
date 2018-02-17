@@ -6,6 +6,121 @@
 
 include_once 'ChromePhp.php';
 
+Class Code {
+    private $code = '';
+
+    public function __construct($code=null) {
+        if($code!=null) {
+            //与えられたコードが数値型だった場合、文字列に変換
+            if(is_int($code)) $this->code = strval($code);
+            else $this->code = $code;
+        }
+    }
+
+    public function getCode() {
+        return $this->code;
+    }
+    public function setCode($value) {
+        //与えられたコードが数値型だった場合、文字列に変換
+        if(is_int($value)) $this->code = strval($value);
+        else $this->code = $value;
+    }
+    public function isValid() {
+        if(preg_match("/^[A-Z0-9]{10}$/", $this->code) == 1 ) {
+            ChromePhp::log('asinかISBNかも^^');
+            if(preg_match("/^[0-9]{10}$/", $this->code) == 1 ) {
+                ChromePhp::log('ISBN-10かも^^');
+            } else {
+                ChromePhp::log('asinかも^^');
+            }
+
+            return true;
+        } else if(preg_match("/^[0-9]{13}$/", $this->code) == 1 ) {
+            ChromePhp::log('JANコードかも^^');
+            if(validateForJAN($this->code))
+            return true;
+        } else {
+            ChromePhp::log('asinじゃない;;');
+            return false;
+        }
+    }
+    public function isEAN() {
+        if(preg_match("/^[0-9]{13}$/", $this->code) == 1 ) {
+            if($this->validateMod($this->code), 10, 3, true) {
+                $header = substr($this->code, 0, 3);
+                if(substr($header, 0, 1) == '0') {
+                    substr($header, 1, 1) == '0';
+                    if() {
+
+                    }
+                    if($this->validateMod($this->code), 10, 3, true) return true;
+                }
+
+                return true;
+            }
+            else return false;
+        }
+    }
+    // モジュラス/ウェイト
+    // number, modulus, weight, isEven(偶数ならtrue)
+    protected function validateMod($num, $modulus, $weight, $isEven) {
+        $code = $num;
+        //与えられたコードが数値型だった場合、文字列に変換
+        if(is_int($num)) $code = strval($num);
+
+        $arr = str_split($code);
+        $origincd = array_pop($arr);// 元のチェックデジットを取り出す
+
+        //チェックデジットの計算
+        $odd = 0;
+        $mod = 0;
+        for($i=0;$i<count($arr);$i++){
+            if(($i+1) % 2 == 0) $mod += intval($arr[$i]);//偶数の総和
+            else $odd += intval($arr[$i]);//奇数の総和
+        }
+        //偶数の和を3倍+奇数の総和を加算して、下1桁の数字を10から引く
+        if($isEven) $cd = $modulus - intval(substr((string)($mod * $weight) + $odd,-1));
+        else $cd = $modulus - intval(substr((string)($odd * $weight) + $mod,-1));
+        //10なら1の位は0なので、0を返す。
+        $cd === $modulus ? 0 : $cd;
+
+        if($cd == intval($origincd)) return true;
+        else return false;
+    }
+    public function isJAN() {
+        if($this->isEAN()) {
+            $national = substr($this->code, 0, 2);
+            if($national == '45' || $national == '49') return true;
+            else return false;
+        } else {
+            return false;
+        }
+    }
+    public function isISBN10() {
+        if(preg_match("/^[0-9]{10}$/", $this->code) == 1 ) return true;
+        else return false;
+    }
+    public function isISBN13() {
+        if(preg_match("/^[0-9]{13}$/", $this->code) == 1 ) {
+            $header = substr($this->code, 0, 3);
+            if($header == '978' || $header == '979') {
+                if($this->validateMod($this->code), 10, 3, true) return true;
+            }
+            else return false;
+        }
+        else return false;
+    }
+    public function isUPC() {
+        if(preg_match("/^[0-9]{13}$/", $this->code) == 1 ) return true;
+        else return false;
+    }
+
+    public function isASIN() {
+        if(preg_match("/^[A-Z0-9]{10}$/", $this->code) == 1 ) return true;
+        else return false;
+    }
+}
+
 Class APAGetter {
     //アクセスキー
     const ACCESS_KEY_ID = 'AKIAJELL6GKEYPNFJGHQ';
@@ -22,9 +137,23 @@ Class APAGetter {
     private $response = null;
 
     public function __construct($itemId=null) {
-        $this->response = null;
         if($itemId!=null) {
-            $this->response = $this->connect($itemId);
+            $itemIdStr = null;
+            //与えられたコードが数値型だった場合、文字列に変換
+            if(is_int($itemId)) $itemIdStr = strval($itemId);
+
+            if(preg_match("/^[A-Z0-9]{10}$/", $itemIdStr) == 1 ) {
+
+                ChromePhp::log('asinかも^^');
+
+            } else if(preg_match("/^[0-9]{13}$/", $itemIdStr) == 1 ) {
+
+                ChromePhp::log('JANコードかも^^');
+            } else {
+                ChromePhp::log('asinじゃない;;');
+                throw new RuntimeException('400 Bad Request', 400);
+            }
+            $this->response = $this->fetch($itemId);
         }
     }
 
@@ -34,47 +163,42 @@ Class APAGetter {
 
     // curlにてAPAへリクエストを送り、レスポンスを取得
     protected function getHttpContent($url) {
-        try {
-            $ch = curl_init();
-            curl_setopt_array($ch, [
-                CURLOPT_URL => $url,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 3
-            ]);
-            $body = curl_exec($ch);
-            $info = curl_getinfo($ch);
-            ChromePhp::log($info);
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 3
+        ]);
+        $body = curl_exec($ch);
+        $info = curl_getinfo($ch);
+        ChromePhp::log($info);
 
-            $errno = curl_errno($ch);
-            ChromePhp::log($errno);
-            $error = curl_error($ch);
-            ChromePhp::log($error);
-            ChromePhp::log(CURLE_OK);
-            curl_close($ch);
+        $errno = curl_errno($ch);
+        ChromePhp::log($errno);
+        $error = curl_error($ch);
+        ChromePhp::log($error);
+        ChromePhp::log(CURLE_OK);
+        curl_close($ch);
 
-            if(CURLE_OK !== $errno) {
-                throw new RuntimeException($error, $errno);
-            }
+        if(CURLE_OK !== $errno) {
+            throw new RuntimeException($error, $errno);
+        }
 
-            if($info['http_code'] == 503) {
-                ChromePhp::log('503');
-                // for ($cnt = self::NUMBER_OF_TRIALS; $cnt > 0; $cnt--){
-                //     sleep(self::TRIALS_MILLSECOND);
-                //     return $this->getHttpContent($url);
-                // }
-                sleep(self::TRIALS_MILLSECOND);
+        // http code が503の場合、指定秒待って指定の回数取得しに行く
+        if($info['http_code'] == 503) {
+            ChromePhp::log('503');
+            for ($cnt = self::NUMBER_OF_TRIALS; $cnt > 0; $cnt--){
+                usleep(self::TRIALS_MILLSECOND);
                 return $this->getHttpContent($url);
             }
-
-            if($info['http_code'] != 200) {
-                $xml = simplexml_load_string($body);
-                throw new RuntimeException($xml->Error->Code.': '.$xml->Error->Message, $info['http_code']);
-            }
-
-            return $body;
-        } catch (Exception $e) {
-            echo $e->getMessage();
         }
+
+        if(!($info['http_code'] == 200 || $info['http_code'] == 201)) {
+            $xml = simplexml_load_string($body);
+            throw new RuntimeException($xml->Error->Code.': '.$xml->Error->Message, $info['http_code']);
+        }
+
+        return $body;
     }
 
     // 値をRFC3986エンコード 
@@ -84,11 +208,11 @@ Class APAGetter {
     }
 
     // Amazon Product Advertising API用のURLを取得
-    protected function getRequestURLForAmazonPA($accessKeyId, $secretAccessKey, $params) {
+    protected function getRequestURLForAmazonPA($params) {
         //パラメータと値のペアをバイト順？で並べかえ。
         ksort($params);
 
-        $canonicalString = 'AWSAccessKeyId='.$accessKeyId;
+        $canonicalString = 'AWSAccessKeyId='.self::ACCESS_KEY_ID;
         // //RFC 3986?でURLエンコード
         foreach ($params as $k => $v) {
             $canonicalString .= '&'.$this->rawurlencodeRFC3986($k).'='.$this->rawurlencodeRFC3986($v);
@@ -98,14 +222,14 @@ Class APAGetter {
         //署名対象のリクエスト文字列を作成。
         $stringToSign = "GET\n{$parseUrl["host"]}\n{$parseUrl["path"]}\n$canonicalString";
         //RFC2104準拠のHMAC-SHA256ハッシュ化しbase64エンコード（これがsignatureとなる）
-        $signature = base64_encode(hash_hmac('sha256', $stringToSign, $secretAccessKey, true));
+        $signature = base64_encode(hash_hmac('sha256', $stringToSign, self::SECRET_ACCESSKEY, true));
         //URL組み立て
         $url = self::END_POINT.'?'.$canonicalString.'&Signature='.$this->rawurlencodeRFC3986($signature);
         return $url;
     }
 
-    public function connect($itemid) {
-        $url = $this->getRequestURLForAmazonPA(self::ACCESS_KEY_ID, self::SECRET_ACCESSKEY, array(//　パラメーター
+    public function fetch($itemid) {
+        $url = $this->getRequestURLForAmazonPA(array(//　パラメーター
             //共通↓
             'Service' => 'AWSECommerceService',
             'AssociateTag' => self::ASSOCIATE_TAG,
@@ -152,6 +276,55 @@ Class APAGetter {
                 xmlExpandAttributes($child); // 再帰呼出
             }
         }
+    }
+
+    protected function isValidForItemId($num) {
+        if(preg_match("/^[A-Z0-9]{10}$/", $num) == 1 ) {
+
+            ChromePhp::log('asinかISBNかも^^');
+            if(preg_match("/^[0-9]{10}$/", $num) == 1 ) {
+
+                ChromePhp::log('ISBNかも^^');
+            } else {
+                
+                ChromePhp::log('asinかも^^');
+            }
+
+            return true;
+        } else if(preg_match("/^[0-9]{13}$/", $num) == 1 ) {
+
+            ChromePhp::log('JANコードかも^^');
+
+            if(validateForJAN($num))
+            return true;
+        } else {
+            ChromePhp::log('asinじゃない;;');
+            return false;
+        }
+    }
+    
+    protected function isValidForJAN($num) {
+        $code = $num;
+        //与えられたコードが数値型だった場合、文字列に変換
+        if(is_int($num)) $code = strval($num);
+
+        $arr = str_split($code);
+        $origincd = array_pop($arr);// 元のチェックデジットを取り出す
+
+        //チェックデジットの計算
+        $odd = 0;
+        $mod = 0;
+        for($i=0;$i<count($arr);$i++){
+            if(($i+1) % 2 == 0) $mod += intval($arr[$i]);//偶数の総和
+            else $odd += intval($arr[$i]);//奇数の総和
+        }
+        //偶数の和を3倍+奇数の総和を加算して、下1桁の数字を10から引く
+        $cd = 10 - intval(substr((string)($mod * 3) + $odd,-1));
+        //10なら1の位は0なので、0を返す。
+        $cd === 10 ? 0 : $cd;
+
+        if($cd == intval($origincd)) return true;
+        else return false;
     }
 }
 

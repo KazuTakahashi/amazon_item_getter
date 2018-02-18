@@ -26,36 +26,25 @@ Class Code {
         else $this->code = $value;
     }
     public function isValid() {
-        if(preg_match("/^[A-Z0-9]{10}$/", $this->code) == 1 ) {
-            ChromePhp::log('asinかISBNかも^^');
-            if(preg_match("/^[0-9]{10}$/", $this->code) == 1 ) {
+        if(preg_match($this->isASIN()) {
+            if(preg_match($this->isISBN10()) {
                 ChromePhp::log('ISBN-10かも^^');
             } else {
                 ChromePhp::log('asinかも^^');
             }
-
             return true;
-        } else if(preg_match("/^[0-9]{13}$/", $this->code) == 1 ) { 
+        } else if($this->isEAN()) { 
             ChromePhp::log('JANコードかも^^');
             if(validateForJAN($this->code))
             return true;
         } else {
-            ChromePhp::log('asinじゃない;;');
+            ChromePhp::log('コードじゃない;;');
             return false;
         }
     }
     public function isEAN() {
         if(preg_match("/^[0-9]{13}$/", $this->code) == 1 ) {
             if($this->validateMod($this->code), 10, 3, true) {
-                $header = substr($this->code, 0, 3);
-                if(substr($header, 0, 1) == '0') {
-                    substr($header, 1, 1) == '0';
-                    if() {
-
-                    }
-                    if($this->validateMod($this->code), 10, 3, true) return true;
-                }
-
                 return true;
             }
             else return false;

@@ -6,109 +6,109 @@
 
 include_once 'ChromePhp.php';
 
-Class Code {
-    private $code = '';
+// Class Code {
+//     private $code = '';
 
-    public function __construct($code=null) {
-        if($code!=null) {
-            //与えられたコードが数値型だった場合、文字列に変換
-            if(is_int($code)) $this->code = strval($code);
-            else $this->code = $code;
-        }
-    }
+//     public function __construct($code=null) {
+//         if($code!=null) {
+//             //与えられたコードが数値型だった場合、文字列に変換
+//             if(is_int($code)) $this->code = strval($code);
+//             else $this->code = $code;
+//         }
+//     }
 
-    public function getCode() {
-        return $this->code;
-    }
-    public function setCode($value) {
-        //与えられたコードが数値型だった場合、文字列に変換
-        if(is_int($value)) $this->code = strval($value);
-        else $this->code = $value;
-    }
-    public function isValid() {
-        if(preg_match($this->isASIN()) {
-            if(preg_match($this->isISBN10()) {
-                ChromePhp::log('ISBN-10かも^^');
-            } else {
-                ChromePhp::log('asinかも^^');
-            }
-            return true;
-        } else if($this->isEAN()) { 
-            ChromePhp::log('JANコードかも^^');
-            if(validateForJAN($this->code))
-            return true;
-        } else {
-            ChromePhp::log('コードじゃない;;');
-            return false;
-        }
-    }
-    public function isEAN() {
-        if(preg_match("/^[0-9]{13}$/", $this->code) == 1 ) {
-            if($this->validateMod($this->code), 10, 3, true) {
-                return true;
-            }
-            else return false;
-        }
-    }
-    // モジュラス/ウェイト
-    // number, modulus, weight, isEven(偶数ならtrue)
-    protected function validateMod($num, $modulus, $weight, $isEven) {
-        $code = $num;
-        //与えられたコードが数値型だった場合、文字列に変換
-        if(is_int($num)) $code = strval($num);
+//     public function getCode() {
+//         return $this->code;
+//     }
+//     public function setCode($value) {
+//         //与えられたコードが数値型だった場合、文字列に変換
+//         if(is_int($value)) $this->code = strval($value);
+//         else $this->code = $value;
+//     }
+//     public function isValid() {
+//         if($this->isASIN()) {
+//             if($this->isISBN10()) {
+//                 ChromePhp::log('ISBN-10かも^^');
+//             } else {
+//                 ChromePhp::log('asinかも^^');
+//             }
+//             return true;
+//         } else if($this->isEAN()) { 
+//             ChromePhp::log('JANコードかも^^');
+//             if(validateForJAN($this->code))
+//             return true;
+//         } else {
+//             ChromePhp::log('コードじゃない;;');
+//             return false;
+//         }
+//     }
+//     public function isEAN() {
+//         if(preg_match("/^[0-9]{13}$/", $this->code) == 1 ) {
+//             if($this->validateMod($this->code, 10, 3, true)){
+//                 return true;
+//             }
+//             else return false;
+//         }
+//     }
+//     // モジュラス/ウェイト
+//     // number, modulus, weight, isEven(偶数ならtrue)
+//     protected function validateMod($num, $modulus, $weight, $isEven) {
+//         $code = $num;
+//         //与えられたコードが数値型だった場合、文字列に変換
+//         if(is_int($num)) $code = strval($num);
 
-        $arr = str_split($code);
-        $origincd = array_pop($arr);// 元のチェックデジットを取り出す
+//         $arr = str_split($code);
+//         $origincd = array_pop($arr);// 元のチェックデジットを取り出す
 
-        //チェックデジットの計算
-        $odd = 0;
-        $mod = 0;
-        for($i=0;$i<count($arr);$i++){
-            if(($i+1) % 2 == 0) $mod += intval($arr[$i]);//偶数の総和
-            else $odd += intval($arr[$i]);//奇数の総和
-        }
-        //偶数の和を3倍+奇数の総和を加算して、下1桁の数字を10から引く
-        if($isEven) $cd = $modulus - intval(substr((string)($mod * $weight) + $odd,-1));
-        else $cd = $modulus - intval(substr((string)($odd * $weight) + $mod,-1));
-        //10なら1の位は0なので、0を返す。
-        $cd === $modulus ? 0 : $cd;
+//         //チェックデジットの計算
+//         $odd = 0;
+//         $mod = 0;
+//         for($i=0;$i<count($arr);$i++){
+//             if(($i+1) % 2 == 0) $mod += intval($arr[$i]);//偶数の総和
+//             else $odd += intval($arr[$i]);//奇数の総和
+//         }
+//         //偶数の和を3倍+奇数の総和を加算して、下1桁の数字を10から引く
+//         if($isEven) $cd = $modulus - intval(substr((string)($mod * $weight) + $odd,-1));
+//         else $cd = $modulus - intval(substr((string)($odd * $weight) + $mod,-1));
+//         //10なら1の位は0なので、0を返す。
+//         $cd === $modulus ? 0 : $cd;
 
-        if($cd == intval($origincd)) return true;
-        else return false;
-    }
-    public function isJAN() {
-        if($this->isEAN()) {
-            $national = substr($this->code, 0, 2);
-            if($national == '45' || $national == '49') return true;
-            else return false;
-        } else {
-            return false;
-        }
-    }
-    public function isISBN10() {
-        if(preg_match("/^[0-9]{10}$/", $this->code) == 1 ) return true;
-        else return false;
-    }
-    public function isISBN13() {
-        if(preg_match("/^[0-9]{13}$/", $this->code) == 1 ) {
-            $header = substr($this->code, 0, 3);
-            if($header == '978' || $header == '979') {
-                if($this->validateMod($this->code), 10, 3, true) return true;
-            }
-            else return false;
-        }
-        else return false;
-    }
-    public function isUPC() {
-        if(preg_match("/^[0-9]{13}$/", $this->code) == 1 ) return true;
-        else return false;
-    }
+//         if($cd == intval($origincd)) return true;
+//         else return false;
+//     }
+//     public function isJAN() {
+//         if($this->isEAN()) {
+//             $national = substr($this->code, 0, 2);
+//             if($national == '45' || $national == '49') return true;
+//             else return false;
+//         } else {
+//             return false;
+//         }
+//     }
+//     public function isISBN10() {
+//         if(preg_match("/^[0-9]{10}$/", $this->code) == 1 ) return true;
+//         else return false;
+//     }
+//     public function isISBN13() {
+//         if(preg_match("/^[0-9]{13}$/", $this->code) == 1 ) {
+//             $header = substr($this->code, 0, 3);
+//             if($header == '978' || $header == '979') {
+//                 if($this->validateMod($this->code), 10, 3, true) return true;
+//             }
+//             else return false;
+//         }
+//         else return false;
+//     }
+//     public function isUPC() {
+//         if(preg_match("/^[0-9]{13}$/", $this->code) == 1 ) return true;
+//         else return false;
+//     }
 
-    public function isASIN() {
-        if(preg_match("/^[A-Z0-9]{10}$/", $this->code) == 1 ) return true;
-        else return false;
-    }
-}
+//     public function isASIN() {
+//         if(preg_match("/^[A-Z0-9]{10}$/", $this->code) == 1 ) return true;
+//         else return false;
+//     }
+// }
 
 Class APAGetter {
     //アクセスキー

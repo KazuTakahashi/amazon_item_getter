@@ -7,13 +7,6 @@ $path = "{$_SERVER['DOCUMENT_ROOT']}/env_vars/amazon_item_getter.pass";
 //'support@sakura.ad.jp' == $_SERVER['SERVER_ADMIN']
 if (file_exists($path)) $_SERVER = array_merge($_SERVER, parse_ini_file($path));
 
-
-define("ACCESS_KEY_ID", $_SERVER['ACCESS_KEY_ID']);//アクセスキー
-define("SECRET_ACCESSKEY", $_SERVER['SECRET_ACCESSKEY']);//アクセスキー
-define("ASSOCIATE_TAG", $_SERVER['ASSOCIATE_TAG']);//アクセスキー
-
-ChromePhp::log($_SERVER['ACCESS_KEY_ID']);
-
 abstract Class CheckDigit {
     protected $value = '';
 
@@ -151,114 +144,6 @@ Class Code {
         if(is_int($value)) $this->value = strval($value);
         else $this->value = $value;
     }
-    // public function getType() {
-    //     return $this->type;
-    // }
-    // public function setType($value) {
-    //     $this->type = $value;
-    // }
-    // public function categorize() {
-    //     if($this->isASIN()) {
-    //         $this->setType(self::TYPE_ASIN);
-    //     } else if($this->isISBN10()) {
-    //         $this->setType(self::TYPE_ISBN10);
-    //     } else if($this->isISBN13()) {
-    //         $this->setType(self::TYPE_ISBN13);
-    //     } else if($this->isISBN13H()) {
-    //         $this->setType(self::TYPE_ISBN13H);
-    //     } else if($this->isEAN()) { 
-    //         if($this->isJAN()) {
-    //             $this->setType(self::TYPE_JAN);
-    //         } else {
-    //             $this->setType(self::TYPE_EAN);
-    //         }
-    //     } else {
-    //         $this->setType(self::TYPE_UNKNOUN);
-    //     }
-    // }
-    // public function isValid() {
-    //     if($this->getType() == self::TYPE_UNKNOUN || $this->getType() == self::TYPE_NONE) {
-    //         return false;
-    //     } 
-    //     return true;
-    // }
-    // public function isEAN() {
-    //     if(preg_match("/^[0-9]{13}$/", $this->value) == 1 ) {
-    //         if($this->validateMod($this->value, 10, 3, true)){
-    //             return true;
-    //         }
-    //         else return false;
-    //     } else {
-    //         return false;
-    //     }
-    // }
-    // // // モジュラス/ウェイト
-    // // // number, modulus, weight, isEven(偶数ならtrue)
-    // protected function validateMod($num, $modulus, $weight, $isEven) {
-    //     $code = $num;
-    //     //与えられたコードが数値型だった場合、文字列に変換
-    //     if(is_int($num)) $code = strval($num);
-
-    //     $arr = str_split($code);
-    //     $origincd = array_pop($arr);// 元のチェックデジットを取り出す
-
-    //     //チェックデジットの計算
-    //     $odd = 0;
-    //     $mod = 0;
-    //     for($i=0;$i<count($arr);$i++){
-    //         if(($i+1) % 2 == 0) $mod += intval($arr[$i]);//偶数の総和
-    //         else $odd += intval($arr[$i]);//奇数の総和
-    //     }
-
-    //     //偶数の和を3倍+奇数の総和を加算して、下1桁の数字を10から引く
-    //     if($isEven) $cd = $modulus - intval(substr((string)($mod * $weight) + $odd,-1));
-    //     else $cd = $modulus - intval(substr((string)($odd * $weight) + $mod,-1));
-        
-    //     //10なら1の位は0なので、0を返す。
-    //     $cd = ($cd === 10) ? 0 : $cd;
-
-    //     if($cd == intval($origincd)) return true;
-    //     else return false;
-    // }
-    // public function isJAN() {
-    //     if($this->isEAN()) {
-    //         $national = substr($this->value, 0, 2);
-    //         if($national == '45' || $national == '49') return true;
-    //         else return false;
-    //     } else {
-    //         return false;
-    //     }
-    // }
-    // public function isISBN10() {
-    //     if(preg_match("/^[0-9]{9}[0-9Xx]$/", $this->value) == 1 ) return true;
-    //     else return false;
-    // }
-    // public function isISBN13() {
-    //     $value = $this->value;
-    //     if(preg_match("/^(978|979)[0-9]{10}$/", $value) == 1 ) {
-    //         if($this->validateMod($value, 10, 3, true)) return true;
-    //         else return false;
-    //     }
-    //     else return false;
-    // }
-    // public function isISBN13H() {
-    //     $value = $this->value;
-    //     if(preg_match("/^(978|979)-[0-9]{10}$/", $value) == 1) {
-    //         $value = str_replace('-', '', $value);
-    //         if($this->validateMod($value, 10, 3, true)) return true;
-    //         else return false;
-    //     }
-    //     else return false;
-    // }
-    // public function isUPC() {
-    //     if(preg_match("/^[0-9]{13}$/", $this->code) == 1 ) return true;
-    //     else return false;
-    // }
-
-    // public function isASIN() {
-    //     if(preg_match("/^[A-Z0-9]{10}$/", $this->value) == 1) return true;
-    //     else return false;
-    // }
 
     // ISBN13をISBN10に変換
     // public function toISBN10() {
@@ -289,14 +174,6 @@ Class Code {
 
     //     $this->setValue(implode("", $arr));
     //     $this->setType(self::TYPE_ISBN10);
-    // }
-
-    // public function calcCheckDigit($code, $method) {
-    //     $modulus = 0;
-    //     if($method == self:CD_MOD10W3E) {
-
-    //     }
-    //     return $cd;
     // }
 }
 
@@ -437,16 +314,6 @@ Class CodeInspector {
     const CODE_JAN = 'CodeJAN';
     const CODE_UNKNOUN = 'CodeUnknown';
 
-    // チェックデジットメソッド
-    // const CD_MOD9W2O = 900;// Modulus9/wight2(odd)
-    // const CD_MOD9W2E = 901;// Modulus9/wight2(even)
-    // const CD_MOD10W2O = 1000;// Modulus10/wight2(odd)
-    // const CD_MOD10W2E = 1001;// Modulus10/wight2(even)
-    // const CD_LUHN = 1002;// LUHN formula
-    // const CD_MOD10W3O = 1010;// Modulus10/wight3(odd)
-    // const CD_MOD10W3E = 1011;// Modulus10/wight3(even), EAN/JAN/ISBN-13
-    // const CD_MOD11W102 = 1102;// Modulus11/wight10-2, ISBN-10
-
     protected $value = '';
     protected $code = null;
 
@@ -567,8 +434,6 @@ Class APAGetter {
     private $response = null;// xmlのrowデータを格納
     private $code = null;
 
-    private $config = null;
-
     public function __construct($itemId=null) {
         if($itemId!=null) {
             // コードの種類を検査
@@ -591,24 +456,6 @@ Class APAGetter {
             } else {
                 throw new RuntimeException('400 Bad Request', 400);
             }
-
-
-
-            // $this->setCode(new Code($itemId));
-            // $code = $this->getCode();
-            // // 商品コードの有効性を検証
-            // $type = $code->getType();
-
-            // // もしISBN-13ならISBN-10に変換を試みる
-            // if($type == (self::TYPE_ISBN13 || self::TYPE_ISBN13H)) {
-            //     $code->toISBN10();
-            // }
-            // if($type == (self::TYPE_ASIN || self::TYPE_ISBN10)) {
-            //     // ASINかISBN10ならAPAから商品コードを使いデータを取りに行く
-            //     $this->fetch();
-            // } else {
-            //     throw new RuntimeException('400 Bad Request', 400);
-            // }
         }
     }
 
@@ -672,7 +519,7 @@ Class APAGetter {
         //パラメータと値のペアをバイト順？で並べかえ。
         ksort($params);
 
-        $canonicalString = 'AWSAccessKeyId='.ACCESS_KEY_ID;
+        $canonicalString = 'AWSAccessKeyId='.$_SERVER['ACCESS_KEY_ID'];
         // //RFC 3986?でURLエンコード
         foreach ($params as $k => $v) {
             $canonicalString .= '&'.$this->rawurlencodeRFC3986($k).'='.$this->rawurlencodeRFC3986($v);
@@ -682,7 +529,7 @@ Class APAGetter {
         //署名対象のリクエスト文字列を作成。
         $stringToSign = "GET\n{$parseUrl["host"]}\n{$parseUrl["path"]}\n$canonicalString";
         //RFC2104準拠のHMAC-SHA256ハッシュ化しbase64エンコード（これがsignatureとなる）
-        $signature = base64_encode(hash_hmac('sha256', $stringToSign, SECRET_ACCESSKEY, true));
+        $signature = base64_encode(hash_hmac('sha256', $stringToSign, $_SERVER['SECRET_ACCESSKEY'], true));
         //URL組み立て
         $url = self::END_POINT.'?'.$canonicalString.'&Signature='.$this->rawurlencodeRFC3986($signature);
         return $url;
@@ -692,7 +539,7 @@ Class APAGetter {
         $url = $this->getRequestURLForAmazonPA(array(//　パラメーター
             //共通↓
             'Service' => 'AWSECommerceService',
-            'AssociateTag' => ASSOCIATE_TAG,
+            'AssociateTag' => $_SERVER['ASSOCIATE_TAG'],
             //リクエストにより変更↓
             'Operation' => 'ItemLookup',
             'ItemId' => $this->code->getValue(),
@@ -706,9 +553,7 @@ Class APAGetter {
         //$this->response = simplexml_load_string($res);// xmlオブジェクトに変換して格納
     }
 
-    //**********************************
-    // XML ⇒ JSONに変換する関数
-    //**********************************
+    // XML ⇒ JSONに変換
     public function getResponseToJson() {
         $xml = $this->response;// xmlの生データ
         // コロンをアンダーバーに（名前空間対策）
@@ -725,9 +570,7 @@ Class APAGetter {
         return preg_replace('/\\\\\//', '/', $json);
     }
 
-    //**********************************
-    // XMLタグの属性を展開する関数
-    //**********************************
+    // XMLタグの属性を展開する
     protected function xmlExpandAttributes($node){
         if($node->count() > 0) {
             foreach($node->children() as $child) {
@@ -738,55 +581,6 @@ Class APAGetter {
             }
         }
     }
-
-    // protected function isValidForItemId($num) {
-    //     if(preg_match("/^[A-Z0-9]{10}$/", $num) == 1 ) {
-
-    //         ChromePhp::log('asinかISBNかも^^');
-    //         if(preg_match("/^[0-9]{10}$/", $num) == 1 ) {
-
-    //             ChromePhp::log('ISBNかも^^');
-    //         } else {
-                
-    //             ChromePhp::log('asinかも^^');
-    //         }
-
-    //         return true;
-    //     } else if(preg_match("/^[0-9]{13}$/", $num) == 1 ) {
-
-    //         ChromePhp::log('JANコードかも^^');
-
-    //         if(validateForJAN($num))
-    //         return true;
-    //     } else {
-    //         ChromePhp::log('asinじゃない;;');
-    //         return false;
-    //     }
-    // }
-    
-    // protected function isValidForJAN($num) {
-    //     $code = $num;
-    //     //与えられたコードが数値型だった場合、文字列に変換
-    //     if(is_int($num)) $code = strval($num);
-
-    //     $arr = str_split($code);
-    //     $origincd = array_pop($arr);// 元のチェックデジットを取り出す
-
-    //     //チェックデジットの計算
-    //     $odd = 0;
-    //     $mod = 0;
-    //     for($i=0;$i<count($arr);$i++){
-    //         if(($i+1) % 2 == 0) $mod += intval($arr[$i]);//偶数の総和
-    //         else $odd += intval($arr[$i]);//奇数の総和
-    //     }
-    //     //偶数の和を3倍+奇数の総和を加算して、下1桁の数字を10から引く
-    //     $cd = 10 - intval(substr((string)($mod * 3) + $odd,-1));
-    //     //10なら1の位は0なので、0を返す。
-    //     $cd === 10 ? 0 : $cd;
-
-    //     if($cd == intval($origincd)) return true;
-    //     else return false;
-    // }
 }
 
 class WrongValueException extends RuntimeException {

@@ -1,8 +1,18 @@
 <?php
 //namespace AmazonItemGetter;
-// define("ACCESS_KEY_ID"     , 'AKIAJELL6GKEYPNFJGHQ');//アクセスキー
 
 include_once 'ChromePhp.php';
+
+$path = "{$_SERVER['DOCUMENT_ROOT']}/env_vars/amazon_item_getter.pass";
+//'support@sakura.ad.jp' == $_SERVER['SERVER_ADMIN']
+if (file_exists($path)) $_SERVER = array_merge($_SERVER, parse_ini_file($path));
+
+
+define("ACCESS_KEY_ID", $_SERVER['ACCESS_KEY_ID']);//アクセスキー
+define("SECRET_ACCESSKEY", $_SERVER['SECRET_ACCESSKEY']);//アクセスキー
+define("ASSOCIATE_TAG", $_SERVER['ASSOCIATE_TAG']);//アクセスキー
+
+ChromePhp::log($_SERVER['ACCESS_KEY_ID']);
 
 abstract Class CheckDigit {
     protected $value = '';
@@ -547,12 +557,6 @@ Class CodeInspector {
 }
 
 Class APAGetter {
-    //アクセスキー
-    const ACCESS_KEY_ID = 'AKIAJELL6GKEYPNFJGHQ';
-    //シークレットキー
-    const SECRET_ACCESSKEY = 'KFMuAY/OSYkt0eN6cJZ3h0lirc41jxdh33D1Q8A1';
-    //アソシエイトタグ
-    const ASSOCIATE_TAG = 'hgau0ghao-22';
     //APIエンドポイントURL
     const END_POINT = 'http://ecs.amazonaws.jp/onca/xml';
     // 試行回数(503対策)
@@ -562,6 +566,8 @@ Class APAGetter {
 
     private $response = null;// xmlのrowデータを格納
     private $code = null;
+
+    private $config = null;
 
     public function __construct($itemId=null) {
         if($itemId!=null) {
@@ -666,7 +672,7 @@ Class APAGetter {
         //パラメータと値のペアをバイト順？で並べかえ。
         ksort($params);
 
-        $canonicalString = 'AWSAccessKeyId='.self::ACCESS_KEY_ID;
+        $canonicalString = 'AWSAccessKeyId='.ACCESS_KEY_ID;
         // //RFC 3986?でURLエンコード
         foreach ($params as $k => $v) {
             $canonicalString .= '&'.$this->rawurlencodeRFC3986($k).'='.$this->rawurlencodeRFC3986($v);
@@ -676,7 +682,7 @@ Class APAGetter {
         //署名対象のリクエスト文字列を作成。
         $stringToSign = "GET\n{$parseUrl["host"]}\n{$parseUrl["path"]}\n$canonicalString";
         //RFC2104準拠のHMAC-SHA256ハッシュ化しbase64エンコード（これがsignatureとなる）
-        $signature = base64_encode(hash_hmac('sha256', $stringToSign, self::SECRET_ACCESSKEY, true));
+        $signature = base64_encode(hash_hmac('sha256', $stringToSign, SECRET_ACCESSKEY, true));
         //URL組み立て
         $url = self::END_POINT.'?'.$canonicalString.'&Signature='.$this->rawurlencodeRFC3986($signature);
         return $url;
@@ -686,7 +692,7 @@ Class APAGetter {
         $url = $this->getRequestURLForAmazonPA(array(//　パラメーター
             //共通↓
             'Service' => 'AWSECommerceService',
-            'AssociateTag' => self::ASSOCIATE_TAG,
+            'AssociateTag' => ASSOCIATE_TAG,
             //リクエストにより変更↓
             'Operation' => 'ItemLookup',
             'ItemId' => $this->code->getValue(),

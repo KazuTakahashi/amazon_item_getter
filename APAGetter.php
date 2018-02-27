@@ -1,57 +1,203 @@
 <?php
+/**
+ * Product Advertising API から商品データを取得する。
+ * 
+ * @package AmazonItemGetter/APAGetter
+ * @author Kazu Takahashi <kazuki@send.mail>
+ * @copyright Copyright (c) 2018 Kazuki Takahashi
+ */
 //namespace AmazonItemGetter;
 
 include_once 'ChromePhp.php';
 
+// APA用アクセスキー読み込み、環境変数に格納
 $path = "{$_SERVER['DOCUMENT_ROOT']}/env_vars/amazon_item_getter.pass";
 //'support@sakura.ad.jp' == $_SERVER['SERVER_ADMIN']
 if (file_exists($path)) $_SERVER = array_merge($_SERVER, parse_ini_file($path));
 
+ChromePhp::log($path);
+
+/**
+ * チェックデジットが含まれたコードに対してのチェックデジット格納、及び検査
+ *
+ * 各種チェックデジットクラスへ継承される抽象クラス。
+ *
+ * @access public
+ * @author Kazu Takahashi <kazuki@send.mail>
+ * @copyright Copyright (c) 2018 Kazuki Takahashi
+ * @package AmazonItemGetter/APAGetter
+ */
 abstract Class CheckDigit {
+    /**
+    * チェックデジットの値、通常はString型の数字か文字が一文字、初期値は空
+    *
+    * @var String
+    */
     protected $value = '';
 
     public function __construct($value) {
-        if($value!=null) $this->setValue($value);
+        if($value!==null) $this->setValue($value);
     }
+
+    /**
+     * "value"の値を返します
+     *
+     * @return String
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function getValue() {return $this->value;}
+
+    /**
+     * "value"の値をセットします
+     *
+     * @param String $value 
+     * @return void
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function setValue($value) {$this->value = $value;}
-    // 受け取ったコードのチェックデジットを計算して格納する
+
+    /**
+     * 受け取ったコードのチェックデジットを計算して"value"へ格納する
+     * 
+     * このメソッドは抽象メソッドとし、子クラスに引き継ぐ
+     *
+     * @param String $code コード文字列
+     * @return void
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     abstract public function calc($code);
-    // 受け取ったコードのチェックデジットと格納されているチェックデジットを比べる、同じならtrue
+
+    /**
+     * 受け取ったコードのチェックデジットと格納されているチェックデジットを比べる
+     *
+     * @param String $code コード文字列
+     * @return bool 真ならtrue
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function isSame($code) {
-        if($this->getValue() == substr($code, -1)) return true;
+        if($this->getValue() === substr($code, -1)) return true;
         else return false;
     }
 }
+
+/**
+ * チェックデジットが含まれたコードに対してのチェックデジット格納、及び検査
+ *
+ * モジュラス演算を使用するチェックデジットクラスへ継承される抽象クラス。
+ *
+ * @access public
+ * @author Kazu Takahashi <kazuki@send.mail>
+ * @copyright Copyright (c) 2018 Kazuki Takahashi
+ * @package AmazonItemGetter/APAGetter
+ */
 abstract Class CheckDigitModulus extends CheckDigit{
+    /**
+    * モジュラス値を格納
+    *
+    * @var Int
+    */
     protected $modulus;
 
     public function __construct($value=null, $modulus=null) {
         parent::__construct($value);
-        if($modulus!=null) $this->setModulus($modulus);
+        if($modulus!==null) $this->setModulus($modulus);
     }
+    /**
+     * "modulus"の値を返します
+     *
+     * @return Int
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function getModulus() {return $this->modulus;}
+
+    /**
+     * "modulus"の値をセットします
+     *
+     * @param Int $modulus 
+     * @return void
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function setModulus($value) {$this->modulus = $value;}
-    abstract public function calc($code);
+    //abstract public function calc($code);
 }
-// モジュラスx/ウェイトy:z
-// 交互に指定の重みを掛ける
+
+/**
+ * チェックデジットが含まれたコードに対してのチェックデジット格納、及び検査
+ *
+ * モジュラスx/ウェイトy:z、奇数・偶数にそれぞれ重みをかけ、合計とのモジュラスの剰余からモジュラスを引いたものがチェックデジット
+ *
+ * @access public
+ * @author Kazu Takahashi <kazuki@send.mail>
+ * @copyright Copyright (c) 2018 Kazuki Takahashi
+ * @package AmazonItemGetter/APAGetter
+ */
 Class CheckDigitModulusMutual extends CheckDigitModulus{
+    /**
+    * 奇数部の重み
+    *
+    * @var Int
+    */
     private $weightOdd;
+
+    /**
+    * 奇数部の重み
+    *
+    * @var Int
+    */
     private $weightEven;
 
     public function __construct($value=null, $modulus=null, $weightOdd=null, $weightEven=null) {
         parent::__construct($value, $modulus);
 
-        if($weightOdd!=null) $this->setWeightOdd($weightOdd);
-        if($weightEven!=null) $this->setWeightEven($weightEven);
+        if($weightOdd!==null) $this->setWeightOdd($weightOdd);
+        if($weightEven!==null) $this->setWeightEven($weightEven);
         // コードを受取チェックデジットを計算して格納
         //if($code==null && $modulus==null && $weightOdd==null && $weightEven==null) $this->calc($code);
     }
+
+    /**
+     * "weightOdd"の値を返します
+     *
+     * @return Int
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function getWeightOdd() {return $this->weightOdd;}
+
+    /**
+     * "weightOdd"の値をセットします
+     *
+     * @param Int $weightOdd 
+     * @return void
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function setWeightOdd($value) {$this->weightOdd = $value;}
+
+    /**
+     * "weightEven"の値を返します
+     *
+     * @return Int
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function getWeightEven() {return $this->weightEven;}
+
+    /**
+     * "weightEven"の値をセットします
+     *
+     * @param Int $weightEven 
+     * @return void
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function setWeightEven($value) {$this->weightEven = $value;}
+    
+    /**
+     * 受け取ったコードのチェックデジットを計算して"value"へ格納する
+     * 
+     * モジュラスx/ウェイトy:z、モジュラスが11の場合で剰余が10の場合チェックデジットはX
+     *
+     * @param String $code コード文字列
+     * @return void
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function calc($code){
         //与えられたコードが数値型だった場合、文字列に変換
         if(is_int($code)) $code = strval($code);
@@ -66,7 +212,7 @@ Class CheckDigitModulusMutual extends CheckDigitModulus{
         $even = 0;
         $evenw = $this->getWeightEven();
         for($i=0;$i<count($arr);$i++){
-            if(($i+1) % 2 == 0) $even += intval($arr[$i])*$evenw;//偶数の総和*偶数の係数
+            if(($i+1) % 2 === 0) $even += intval($arr[$i])*$evenw;//偶数の総和*偶数の係数
             else $odd += intval($arr[$i])*$oddw;//奇数の総和*奇数の係数
         }
 
@@ -81,6 +227,7 @@ Class CheckDigitModulusMutual extends CheckDigitModulus{
         $this->setValue($cd);
     }
 }
+
 // Luhn formula
 // 交互に指定の重みを掛けて、各桁の合計が二桁の場合分割して加算
 // final Class CheckDigitLuhnFormula extends CheckDigitModulusMutual{
@@ -88,19 +235,58 @@ Class CheckDigitModulusMutual extends CheckDigitModulus{
 //         parent::__construct($value);
 //     }
 // }
-// モジュラスx/ウェイトy->z
-// 先頭から指定の重みを減らしながら掛ける
+
+/**
+ * チェックデジットが含まれたコードに対してのチェックデジット格納、及び検査
+ *
+ * モジュラスx/ウェイトy->z、先頭から指定の重みを減らしながらかけた合計とのモジュラスの剰余からモジュラスを引いたものがチェックデジット
+ *
+ * @access public
+ * @author Kazu Takahashi <kazuki@send.mail>
+ * @copyright Copyright (c) 2018 Kazuki Takahashi
+ * @package AmazonItemGetter/APAGetter
+ */
 final Class CheckDigitModulusOrder extends CheckDigitModulus{
-    private $weight = 0;
+    /**
+    * 重み
+    *
+    * @var Int
+    */
+    private $weight;
 
     public function __construct($value=null, $modulus=null, $weight=null) {
         parent::__construct($value, $modulus);
-        if($weight!=null) $this->setWeight($weight);
+        if($weight!==null) $this->setWeight($weight);
 
         //if($code!=null && $modulus!=null && $weight!=null)$this->calc($code);
     }
+
+    /**
+     * "weight"の値を返します
+     *
+     * @return Int
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function getWeight() {return $this->weight;}
+
+    /**
+     * "weight"の値をセットします
+     *
+     * @param Int $weight 
+     * @return void
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function setWeight($value) {$this->weight = $value;}
+
+    /**
+     * 受け取ったコードのチェックデジットを計算して"value"へ格納する
+     * 
+     * モジュラスx/ウェイトy->z、モジュラスが11の場合で剰余が10の場合チェックデジットはX
+     *
+     * @param String $code コード文字列
+     * @return void
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function calc($code){
         //与えられたコードが数値型だった場合、文字列に変換
         if(is_int($num)) $code = strval($num);
@@ -128,70 +314,105 @@ final Class CheckDigitModulusOrder extends CheckDigitModulus{
     }
 }
 
-Class Code {
+/**
+ * 各種コードを格納
+ *
+ * 各種コードクラスへ継承される抽象クラス。
+ *
+ * @access public
+ * @author Kazu Takahashi <kazuki@send.mail>
+ * @copyright Copyright (c) 2018 Kazuki Takahashi
+ * @package AmazonItemGetter/APAGetter
+ */
+abstract Class Code {
+    /**
+    * コードの値、初期値は空
+    *
+    * @var String
+    */
     protected $value = '';
 
     public function __construct($value=null) {
-        if($value!=null) {
+        if($value!==null) {
             $this->setValue($value);
-            //$this->categorize();// タイプ別にコードタイプを格納
         }
     }
 
+    /**
+     * "value"の値を返します
+     *
+     * @return String
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function getValue() {return $this->value;}
+
+    /**
+     * "value"の値をセットします
+     * 
+     * 数値が与えられた場合、文字列に変換
+     *
+     * @param String|Int $value 
+     * @return void
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function setValue($value) {
         //与えられたコードが数値型だった場合、文字列に変換
         if(is_int($value)) $this->value = strval($value);
         else $this->value = $value;
     }
-
-    // ISBN13をISBN10に変換
-    // public function toISBN10() {
-    //     // タイプがISBN-13ではない場合そのまま抜ける
-    //     if(!($this->type == (self::TYPE_ISBN13 || self::TYPE_ISBN13H))) return;
-
-    //     $value = $this->value;
-    //     $arr = null;
-    //     if($this->type == self::TYPE_ISBN13H) {
-    //         $arr = preg_split("/^(978-|979-)|([0-9]$)/", $value);
-    //     } else {
-    //         $arr = preg_split("/^(978|979)|([0-9]$)/", $value);
-    //     }
-
-    //     // モジュラス11 ウェイト10-2
-    //     $arr = str_split($arr[1]);
-
-    //     $cd = 0;
-    //     for($i=0, $j=10; $i<count($arr); $i++, $j--){
-    //         $cd += intval($arr[$i]) * $j;
-    //     }
-    //     $cd = $cd % 11;
-    //     //10ならXを返す。
-    //     $cd = ($cd === 10) ? 'X' : $cd;
-        
-    //     if(is_int($cd)) $cd = strval($cd);
-    //     array_push($arr, $cd);
-
-    //     $this->setValue(implode("", $arr));
-    //     $this->setType(self::TYPE_ISBN10);
-    // }
 }
 
+/**
+ * ASINコードを格納
+ *
+ * @access public
+ * @author Kazu Takahashi <kazuki@send.mail>
+ * @copyright Copyright (c) 2018 Kazuki Takahashi
+ * @package AmazonItemGetter/APAGetter
+ */
 Class CodeASIN extends Code{
     public function __construct($value=null) {
-        if($value!=null) {
-            parent::__construct($value);
-        }
+        parent::__construct($value);
     }
 }
+
+/**
+ * チェックデジットを含んだコードを格納
+ * 
+ * チェックデジットを含んだ各種コードクラスへ継承される抽象クラス。
+ *
+ * @access public
+ * @author Kazu Takahashi <kazuki@send.mail>
+ * @copyright Copyright (c) 2018 Kazuki Takahashi
+ * @package AmazonItemGetter/APAGetter
+ */
 abstract Class CodeWidhCheckDigit extends Code{
+    /**
+    * CeckDigit型オブジェクト
+    *
+    * @var CeckDigit
+    */
     protected $checkDigit = null;
+
     public function __construct($value=null) {
-        if($value!=null) {
-            parent::__construct($value);
-        }
+        parent::__construct($value);
     }
+
+    /**
+     * "checkDigit"オブジェクトの参照を返します
+     *
+     * @return CeckDigit
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function getCheckDigit() {return $this->checkDigit;}
+
+    /**
+     * "checkDigit"オブジェクトのクローンをセットします
+     *
+     * @param CeckDigit $checkDigit 
+     * @return void
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function setCheckDigit($obj) {$this->checkDigit = clone $obj;}
 
     public function getValue() {
@@ -199,6 +420,17 @@ abstract Class CodeWidhCheckDigit extends Code{
         $cdValue = $cd->getValue();
         return $this->value . $cdValue;
     }
+
+    /**
+     * "value"の値をセットします
+     * 
+     * 与えられたコードのチェックデジットを検査した後、チェックデジットをcheckDegit、
+     * 値をvalueにそれぞれセット、チェックデジットが間違っている場合WrongValueExceptionを投げる
+     *
+     * @param String $value 
+     * @return void
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     public function setValue($value) {
         //与えられたコードが数値型だった場合、文字列に変換
         if(is_int($value)) $value = strval($value);
@@ -221,90 +453,138 @@ abstract Class CodeWidhCheckDigit extends Code{
         $this->checkDigit = clone $this->checkDigit;
     }
 }
+
+/**
+ * ISBN10コードを格納
+ *
+ * @access public
+ * @author Kazu Takahashi <kazuki@send.mail>
+ * @copyright Copyright (c) 2018 Kazuki Takahashi
+ * @package AmazonItemGetter/APAGetter
+ */
 Class CodeISBN10 extends CodeWidhCheckDigit{
     public function __construct($value=null) {
-        if($value!=null) {
-            parent::__construct($value);
+        parent::__construct();
+        // 予めチェックデジットオブジェクトを格納
+        $this->setCheckDigit(new CheckDigitModulusOrder(null, 10, 10));
+        if($value!==null) {
+            $this->setValue($value);
+        }
+    }
+
+    /**
+     * "value"の値をセットします
+     * 
+     * チェックデジットがない場合、再計算、チェックデジットがある場合、親のsetValue()を呼び出す
+     *
+     * @param String $value 
+     * @return void
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
+    public function setValue($value) {
+        if(mb_strlen($value) === 9) {// チェックデジットがない
+            $cd = $this->getCheckDigit();
+            $cd->calc($value);
+            $this->value = $value;
+        } else {
+            parent::setValue($value);
         }
     }
 }
+
+/**
+ * ISBN13コードを格納
+ *
+ * @access public
+ * @author Kazu Takahashi <kazuki@send.mail>
+ * @copyright Copyright (c) 2018 Kazuki Takahashi
+ * @package AmazonItemGetter/APAGetter
+ */
 Class CodeISBN13 extends CodeWidhCheckDigit{
     public function __construct($value=null) {
         parent::__construct();
 
         // 予めチェックデジットオブジェクトを格納
         $this->setCheckDigit(new CheckDigitModulusMutual(null, 10, 1, 3));
-        if($value!=null) {
+        if($value!==null) {
             $this->setValue($this->deleteHyphen($value));
-            // 元のコードからチェックデジットを除いて、再計算
-            // $valueNonCd = substr($this->deleteHyphen($value), 0, 12);
-            // $cd = $this->getCheckDigit();
-            // $cd->calc($valueNonCd);
-            // // 元のチェックデジットと計算されたチェックデジットの比較
-            // if(!$cd->isSame($value)) {
-            //     throw new WrongValueException('This check degit is wrong');
-            // }
         }
     }
-    // ハイフンの除去
+
+    /**
+     * ハイフンの除去
+     *
+     * @param String $value 
+     * @return String
+     * @author Kazu Takahashi <kazuki@send.mail>
+     */
     private function deleteHyphen($value) {
         return preg_replace('/(-)/', '', $value);
     }
-
-    public function toISBN10($obj) {
-        $value = $this->getValue();
-        $arr = null;
-        // 先頭978|979とチェックデジットの除去
-        $arr = preg_split("/^(978|979)|([0-9]$)/", $value);
-
-        $cd = new CheckDigitModulusMutual(null, 10, 1, 3);
-        $cd->calc($arr[1]);
-
-        // モジュラス11 ウェイト10-2
-        $arr = str_split($arr[1]);
-
-        $cd = 0;
-        for($i=0, $j=10; $i<count($arr); $i++, $j--){
-            $cd += intval($arr[$i]) * $j;
-        }
-        $cd = $cd % 11;
-        //10ならXを返す。
-        $cd = ($cd === 10) ? 'X' : $cd;
-        
-        if(is_int($cd)) $cd = strval($cd);
-        array_push($arr, $cd);
-
-        $this->setValue(implode("", $arr));
-        $this->setType(self::TYPE_ISBN10);
-    }
 }
+
+/**
+ * EANコードを格納
+ *
+ * @access public
+ * @author Kazu Takahashi <kazuki@send.mail>
+ * @copyright Copyright (c) 2018 Kazuki Takahashi
+ * @package AmazonItemGetter/APAGetter
+ */
 Class CodeEAN extends CodeWidhCheckDigit{
     public function __construct($value=null) {
+        parent::__construct();
+        // 予めチェックデジットオブジェクトを格納
+        $this->setCheckDigit(new CheckDigitModulusMutual(null, 10, 1, 3));
         if($value!=null) {
-            parent::__construct($value);
-            // $this->setCheckDigit(new CheckDigitModulusMutual($value, 10, 1, 3));
+            $this->setValue($value);
         }
-
     }
 }
+
+/**
+ * JANコードを格納
+ *
+ * @access public
+ * @author Kazu Takahashi <kazuki@send.mail>
+ * @copyright Copyright (c) 2018 Kazuki Takahashi
+ * @package AmazonItemGetter/APAGetter
+ */
 Class CodeJAN extends CodeEAN{
     public function __construct($value=null) {
-        if($value!=null) {
-            parent::__construct($value);
-            // $this->setCheckDigit(new CheckDigitModulusMutual($value, 10, 1, 3));
+        parent::__construct();
+        // 予めチェックデジットオブジェクトを格納
+        $this->setCheckDigit(new CheckDigitModulusMutual(null, 10, 1, 3));
+        if($value!==null) {
+            $this->setValue($value);
         }
-       
-    }
-}
-Class CodeUnknown extends Code{
-    public function __construct($value=null) {
-        if($value!=null) {
-            parent::__construct($value);
-        }
-        
     }
 }
 
+/**
+ * 不明なコードを格納
+ *
+ * @access public
+ * @author Kazu Takahashi <kazuki@send.mail>
+ * @copyright Copyright (c) 2018 Kazuki Takahashi
+ * @package AmazonItemGetter/APAGetter
+ */
+Class CodeUnknown extends Code{
+    public function __construct($value=null) {
+        parent::__construct($value);
+    }
+}
+
+/**
+ * コードを予め検査するクラス
+ * 
+ * valueには検査前のコードを、codeには検査後のコードオブジェクトを格納
+ *
+ * @access public
+ * @author Kazu Takahashi <kazuki@send.mail>
+ * @copyright Copyright (c) 2018 Kazuki Takahashi
+ * @package AmazonItemGetter/APAGetter
+ */
 Class CodeInspector {
     // コードタイプ
     const CODE_ASIN = 'CodeASIN';
@@ -314,11 +594,22 @@ Class CodeInspector {
     const CODE_JAN = 'CodeJAN';
     const CODE_UNKNOUN = 'CodeUnknown';
 
+    /**
+    * 検査前のコード
+    *
+    * @var String
+    */
     protected $value = '';
+
+    /**
+    * 検査後のコードオブジェクト
+    *
+    * @var Code
+    */
     protected $code = null;
 
     public function __construct($value=null) {
-        if($value!=null) {
+        if($value!==null) {
             $this->setValue($value);
         }
     }
@@ -369,57 +660,30 @@ Class CodeInspector {
     }
 
     public function isASIN() {
-        if(preg_match("/^[A-Z0-9]{10}$/", $this->value) == 1) return true;
+        if(preg_match("/^[A-Z0-9]{10}$/", $this->getValue()) === 1) return true;
         else return false;
     }
     public function isISBN10() {
-        if(preg_match("/^[0-9]{9}[0-9Xx]$/", $this->value) == 1 ) return true;
+        if(preg_match("/^[0-9]{9}[0-9Xx]$/", $this->getValue()) === 1 ) return true;
         else return false;
     }
     public function isISBN13() {
-        $value = $this->value;
-        if(preg_match("/^(978|979|978-|979-)[0-9]{10}$/", $value) == 1 ) return true;
+        if(preg_match("/^(978|979|978-|979-)[0-9]{10}$/", $this->getValue()) === 1 ) return true;
         else return false;
     }
     public function isEAN() {
-        if(preg_match("/^[0-9]{13}$/", $this->value) == 1 ) return true;
+        if(preg_match("/^[0-9]{13}$/", $this->getValue()) === 1 ) return true;
         else return false;
     }
     public function isJAN() {
-        if(preg_match("/^(45|49)[0-9]{11}$/", $this->value) == 1 ) return true;
+        if(preg_match("/^(45|49)[0-9]{11}$/", $this->getValue()) === 1 ) return true;
         else return false;
     }
     // ISBN13をISBN10に変換
-    public function toISBN10() {
-        // $code = $this->getCode();
-        // // タイプがISBN-13ではない場合そのまま抜ける
-        // // $typeName = get_class($code);// クラス名を取得
-        // // if(!($typeName == 'CodeISBN13')) return;
-
-        // $value = $this->value;
-        // $arr = null;
-        // if($this->type == self::TYPE_ISBN13H) {
-        //     $arr = preg_split("/^(978-|979-)|([0-9]$)/", $value);
-        // } else {
-        //     $arr = preg_split("/^(978|979)|([0-9]$)/", $value);
-        // }
-
-        // // モジュラス11 ウェイト10-2
-        // $arr = str_split($arr[1]);
-
-        // $cd = 0;
-        // for($i=0, $j=10; $i<count($arr); $i++, $j--){
-        //     $cd += intval($arr[$i]) * $j;
-        // }
-        // $cd = $cd % 11;
-        // //10ならXを返す。
-        // $cd = ($cd === 10) ? 'X' : $cd;
-        
-        // if(is_int($cd)) $cd = strval($cd);
-        // array_push($arr, $cd);
-
-        // $this->setValue(implode("", $arr));
-        // $this->setType(self::TYPE_ISBN10);
+    public function toISBN10(CodeISBN13 $obj) {
+        // 先頭978|979とチェックデジットの除去
+        $arr = preg_split("/^(978|979)/", $obj->getValue());
+        $this->setCode(new CodeISBN10($arr[1]));
     }
 }
 
@@ -435,7 +699,7 @@ Class APAGetter {
     private $code = null;
 
     public function __construct($itemId=null) {
-        if($itemId!=null) {
+        if($itemId!==null) {
             // コードの種類を検査
             $codeInspector = new CodeInspector($itemId);
             // CodeINspectorからコードオブジェクトを取得して格納
@@ -445,12 +709,12 @@ Class APAGetter {
             
 
             // もしISBN-13ならISBN-10に変換を試みる
-            if($typeName == 'CodeISBN13') {
+            if($typeName === 'CodeISBN13') {
 
             }
             $this->setCode($code);
 
-            if($typeName == ('CodeASIN' || 'CodeISBN10')) {
+            if($typeName === ('CodeASIN' || 'CodeISBN10')) {
                 // ASINかISBN10ならAPAから商品コードを使いデータを取りに行く
                 $this->fetch();
             } else {
@@ -492,7 +756,7 @@ Class APAGetter {
         }
 
         // http code が503の場合、指定秒待って指定の回数取得しに行く
-        if($info['http_code'] == 503) {
+        if($info['http_code'] === 503) {
             ChromePhp::log('503');
             for ($cnt = self::NUMBER_OF_TRIALS; $cnt > 0; $cnt--){
                 usleep(self::TRIALS_MILLSECOND);
@@ -500,7 +764,7 @@ Class APAGetter {
             }
         }
 
-        if(!($info['http_code'] == 200 || $info['http_code'] == 201)) {
+        if(!($info['http_code'] === 200 || $info['http_code'] == 201)) {
             $xml = simplexml_load_string($body);
             throw new RuntimeException($xml->Error->Code.': '.$xml->Error->Message, $info['http_code']);
         }

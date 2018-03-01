@@ -341,6 +341,7 @@ final Class CheckDigitModulusOrder extends CheckDigitModulus{
  * @property string $value
  */
 abstract Class Code {
+
     /**
     * コードの値、初期値は空
     *
@@ -402,6 +403,13 @@ abstract Class Code {
  */
 Class CodeASIN extends Code{
     /**
+     * コードの文字数
+     * 
+     * @const integer
+     */
+    const LENGTH = 10;
+
+    /**
      * @constructor 
      * @param string $value
      */
@@ -421,6 +429,7 @@ Class CodeASIN extends Code{
  * @property CeckDigit $checkDigit
  */
 abstract Class CodeWidhCheckDigit extends Code{
+
     /**
     * CeckDigit型オブジェクト
     *
@@ -467,24 +476,52 @@ abstract Class CodeWidhCheckDigit extends Code{
      *
      * @param string $value 
      * @return void
+     * @throws WrongValueException|UnexpectedValueException
      * @author Kazu Takahashi <kazuki@send.mail>
      */
-    public function setValue($value) {
-        //与えられたコードが数値型だった場合、文字列に変換
-        //if(is_int($value)) $value = strval($value);
-
-        // 元のコードからチェックデジットを除いて、再計算
-        $valueNonCd = substr($value, 0, -1);
-
-        $cd = $this->getCheckDigit();
-
-        $cd->calc($valueNonCd);
-        // 元のチェックデジットと計算されたチェックデジットの比較
-        if(!$cd->isSame($value)) {
-            throw new WrongValueException('This check degit is wrong');
+    public function setValue($value, $length=null) {
+        if(!$length===null) {
+            if(mb_strlen($value) === $length-1) {// チェックデジットがない
+                $cd = $this->getCheckDigit();
+                $cd->calc($value);
+                $this->value = $value;
+            } else {
+                // 元のコードからチェックデジットを除いて、再計算
+                $valueNonCd = substr($value, 0, -1);
+        
+                $cd = $this->getCheckDigit();
+        
+                $cd->calc($valueNonCd);
+                // 元のチェックデジットと計算されたチェックデジットの比較
+                if(!$cd->isSame($value)) {
+                    throw new WrongValueException('This check degit is wrong');
+                }
+                
+                // 親のsetterにて、チェックデジット無しコードをvalueに格納
+                parent::setValue($valueNonCd);
+            }
+        } else {
+            if(mb_strlen($value) === $length-1) {// チェックデジットがない
+                throw new UnexpectedValueException('The argument: "length" is not unexpected value.');
+            } else {
+                
+                // 元のコードからチェックデジットを除いて、再計算
+                $valueNonCd = substr($value, 0, -1);
+        
+                $cd = $this->getCheckDigit();
+        
+                $cd->calc($valueNonCd);
+                // 元のチェックデジットと計算されたチェックデジットの比較
+                if(!$cd->isSame($value)) {
+                    throw new WrongValueException('This check degit is wrong');
+                }
+                
+                // 親のsetterにて、チェックデジット無しコードをvalueに格納
+                parent::setValue($valueNonCd);
+            }
         }
-        // 親のsetterにて、チェックデジット無しコードをvalueに格納
-        parent::setValue($valueNonCd);
+
+
     }
 
     //abstract protected function check($value);
@@ -503,37 +540,30 @@ abstract Class CodeWidhCheckDigit extends Code{
  * @package AmazonItemGetter/APAGetter
  */
 Class CodeISBN10 extends CodeWidhCheckDigit{
+    /**
+     * コードの文字数
+     * 
+     * @const integer
+     */
+    const LENGTH = 10;
 
     /**
      * @constructor 
      * @param string $value
+     * @throws WrongValueException|UnexpectedValueException
      */
     public function __construct($value=null) {
         parent::__construct();
         // 予めチェックデジットオブジェクトを格納
         $this->setCheckDigit(new CheckDigitModulusOrder(null, 10, 10));
         if($value!==null) {
-            $this->setValue($value);
-        }
-    }
-
-    /**
-     * "value"の値をセットします
-     * 
-     * チェックデジットがない場合、再計算、チェックデジットがある場合、親のsetValue()を呼び出す
-     *
-     * @param string $value 
-     * @return void
-     * @author Kazu Takahashi <kazuki@send.mail>
-     */
-    public function setValue($value) {
-        if(mb_strlen($value) === 9) {// チェックデジットがない
-            $cd = $this->getCheckDigit();
-            
-            $cd->calc($value);
-            $this->value = $value;
-        } else {
-            parent::setValue($value);
+            try {
+                $this->setValue($value, self::LENGTH);
+            } catch (WrongValueException $e) {
+                throw new WrongValueException($e->getMessage());
+            } catch (UnexpectedValueException $e) {
+                throw new UnexpectedValueException($e->getMessage());
+            }
         }
     }
 }
@@ -547,6 +577,13 @@ Class CodeISBN10 extends CodeWidhCheckDigit{
  * @package AmazonItemGetter/APAGetter
  */
 Class CodeISBN13 extends CodeWidhCheckDigit{
+    /**
+     * コードの文字数
+     * 
+     * @const integer
+     */
+    const LENGTH = 13;
+
     /**
      * @constructor 
      * @param string $value
@@ -572,6 +609,13 @@ Class CodeISBN13 extends CodeWidhCheckDigit{
  */
 Class CodeEAN extends CodeWidhCheckDigit{
     /**
+     * コードの文字数
+     * 
+     * @const integer
+     */
+    const LENGTH = 13;
+
+    /**
      * @constructor 
      * @param string $value
      */
@@ -594,6 +638,13 @@ Class CodeEAN extends CodeWidhCheckDigit{
  * @package AmazonItemGetter/APAGetter
  */
 Class CodeJAN extends CodeEAN{
+    /**
+     * コードの文字数
+     * 
+     * @const integer
+     */
+    const LENGTH = 13;
+
     /**
      * @constructor 
      * @param string $value
@@ -865,12 +916,13 @@ Class APAGetter {
     /**
      * @constructor 
      * @param string $itemId
+     * @throws RuntimeException APAで使用できないコードもしくは不明なコードを受信している場合
      */
     public function __construct($itemId=null) {
         if($itemId!==null) {
 
             // APA用アクセスキー読み込み、環境変数に格納
-            $path = "{$_SERVER['DOCUMENT_ROOT']}/env_vars/amazon_item_getter.pass";
+            $path = "{$_SERVER['DOCUMENT_ROOT']}/amazon_item_getter/env_vars/.pass";
             //'support@sakura.ad.jp' == $_SERVER['SERVER_ADMIN']
             if (file_exists($path)) $_SERVER = array_merge($_SERVER, parse_ini_file($path));
 
@@ -892,7 +944,7 @@ Class APAGetter {
                 // ASINかISBN10ならAPAから商品コードを使いデータを取りに行く
                 $this->fetch();
             } else {
-                throw new RuntimeException('400 Bad Request', 400);
+                throw new RuntimeException('This code is not available.');
             }
 
         }
@@ -947,7 +999,7 @@ Class APAGetter {
      *
      * @param string $url 
      * @return string xml生データ
-     * @throws RuntimeException httpコードが200、201(503の場合指定回数試行してもデータが得られない場合)以外
+     * @throws HttpException httpコードが200、201(503の場合指定回数試行してもデータが得られない場合)以外
      * @author Kazu Takahashi <kazuki@send.mail>
      */
     protected function getHttpContent($url) {
@@ -965,7 +1017,7 @@ Class APAGetter {
         curl_close($ch);
 
         if(CURLE_OK !== $errno) {
-            throw new RuntimeException($error, $errno);
+            throw new HttpException($error, $errno);
         }
 
         // http code が503の場合、指定秒待って指定の回数取得しに行く
@@ -979,7 +1031,7 @@ Class APAGetter {
 
         if(!($info['http_code'] === 200 || $info['http_code'] == 201)) {
             $xml = simplexml_load_string($body);
-            throw new RuntimeException($xml->Error->Code.': '.$xml->Error->Message, $info['http_code']);
+            throw new HttpException($xml->Error->Code.': '.$xml->Error->Message, $info['http_code']);
         }
 
         return $body;
@@ -1031,6 +1083,7 @@ Class APAGetter {
      * @param array $params 'Service', 'AssociateTag'は必須
      * @return string URL
      * @author Kazu Takahashi <kazuki@send.mail>
+     * @throws RuntimeException
      */
     public function fetch() {
         $code = $this->getCode();
@@ -1045,8 +1098,13 @@ Class APAGetter {
             //署名用タイムスタンプ
             'Timestamp' => gmdate('Y-m-d\TH:i:s\Z'),
         ));
-        // xml取得
-        $this->setResponse($this->getHttpContent($url));
+
+        try {
+            // xml取得
+            $this->setResponse($this->getHttpContent($url));
+        } catch (HttpException $e) {
+            throw new RuntimeException($e->getMessage(), $e->getCode());
+        }
         //$this->response = simplexml_load_string($res);// xmlオブジェクトに変換して格納
     }
 
@@ -1109,30 +1167,5 @@ Class APAGetter {
     }
 }
 
-/**
- * WrongValueExceptionクラス
- * 
- * 間違った値が格納されたとき。RuntimeExceptionを継承する
- *
- * @access public
- * @author Kazu Takahashi <kazuki@send.mail>
- * @copyright Copyright (c) 2018 Kazuki Takahashi
- * @package AmazonItemGetter/APAGetter
- */
-class WrongValueException extends RuntimeException {
-    /**
-     * @constructor 
-     * @param string $message
-     * @param integer $code
-     * @param Exception $previous
-     */
-    public function __construct($message, $code = 0, Exception $previous = null){
-      parent::__construct($message, $code, $previous);
-    }
-
-    public function __toString() {
-        return __CLASS__ . ": [{$this->code}]: {$this->message}\n";
-    }
-  }
 
 ?>

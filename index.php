@@ -10,6 +10,7 @@
  */
 
 //namespace AmazonItemGetter;
+include_once 'error.php';
 include_once 'APAGetter.php';
 
 /**
@@ -26,13 +27,16 @@ function main() {
     try {
         // itemIdがの送信有無、なければ http status code 400 を投げる
         if (!isset($_GET['itemId']) || !is_string($_GET['itemId']) || $_GET['itemId'] === '') {
-            http_response_code(400);
-            //header('HTTP/1.1 400 Bad Request');
-            throw new RuntimeException('400 Bad Request');
+            throw new HttpClientException(400);
         }
         
         $apaGetter = new APAGetter($_GET['itemId']);// B013JDJLDQ 9784569838960
 
+    } catch (HttpException $e) {
+        http_response_code($e->getHttpCode());
+        //header('HTTP/1.1 400 Bad Request');
+        echo $e->getMessage();
+        return false;
     } catch (Exception $e) {
         http_response_code(400);
         //header('HTTP/1.1 400 Bad Request');
